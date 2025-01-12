@@ -1,29 +1,33 @@
 package com.example.waterAplication.builder;
 
-import com.example.waterAplication.factory.ApaFactorySubject;
+import com.example.waterAplication.factory.ApaMineralaFactory;
+import com.example.waterAplication.factory.ApaPlataFactory;
 import com.example.waterAplication.model.Apa;
+import com.example.waterAplication.model.Client;
 import com.example.waterAplication.model.Comanda;
+import com.example.waterAplication.observer.NotificationManager;
 import com.example.waterAplication.observer.Observer;
 
 import java.util.ArrayList;
 import java.util.List;
 
-public class ComandaBuilder implements IBuilder{
+public class ComandaBuilder implements IBuilder {
     private String tipApa;
     private int cantitate;
     private String adresaLivrare;
     private boolean includeDozator;
     private String dataLivrare;
-    private ApaFactorySubject apaFactorySubject;
-    private List<Observer> observers = new ArrayList<>();
+    private Client client;
+    private final NotificationManager notificationManager;
+    private final ApaMineralaFactory apaMineralaFactory = new ApaMineralaFactory();
+    private final ApaPlataFactory apaPlataFactory = new ApaPlataFactory();
 
-    public ComandaBuilder setApaFactorySubject(ApaFactorySubject apaFactorySubject) {
-        this.apaFactorySubject = apaFactorySubject;
-        return this;
+    public ComandaBuilder(NotificationManager notificationManager) {
+        this.notificationManager = notificationManager;
     }
 
-    public ComandaBuilder addObserver(Observer observer) {
-        this.observers.add(observer);
+    public ComandaBuilder setClient(Client client) {
+        this.client = client;
         return this;
     }
 
@@ -59,21 +63,32 @@ public class ComandaBuilder implements IBuilder{
 
     @Override
     public Comanda build() {
-        if (apaFactorySubject == null) {
-            throw new IllegalStateException("ApaFactorySubject nu este setată!");
+        if (tipApa == null || tipApa.isEmpty()) {
+            throw new IllegalStateException("Tipul de apă trebuie să fie specificat!");
         }
 
-        // Adăugăm observatorii la subiect
-        for (Observer observer : observers) {
-            apaFactorySubject.addObserver(observer);
-        }
-
-        // Generăm lista de ape
         List<Apa> apaList = new ArrayList<>();
         for (int i = 0; i < cantitate; i++) {
-            apaList.add(apaFactorySubject.createApa());
+            if ("Minerală".equalsIgnoreCase(tipApa)) {
+                apaList.add(apaMineralaFactory.createApa());
+            } else if ("Plată".equalsIgnoreCase(tipApa)) {
+                apaList.add(apaPlataFactory.createApa());
+            } else {
+                throw new IllegalStateException("Tipul de apă nu este valid: " + tipApa);
+            }
         }
 
-        return new Comanda(tipApa, cantitate, adresaLivrare, includeDozator, dataLivrare, apaList);
+
+        Comanda comanda = new Comanda(tipApa, cantitate, adresaLivrare, includeDozator, dataLivrare, apaList, client);
+
+
+        if (notificationManager.hasObservers()) {
+            String message = "Salut, " + this.client.getName() + "!\n\nComanda ta de " + tipApa +
+                    " este gata de livrare.\n\nAdresa de livrare: " + adresaLivrare +
+                    "\nData livrării: " + dataLivrare + "\n\nVă mulțumim!";
+            notificationManager.notifyObservers(message);
+        }
+
+        return comanda;
     }
 }
